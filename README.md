@@ -8,5 +8,5 @@ Duy Nguyen
 Allen Weng
 
 Luke Qiao
-Pranav
+
 Pranav Somani
