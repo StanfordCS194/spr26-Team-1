@@ -1,0 +1,23 @@
+{
+  "name": "topolog",
+  "version": "0.0.1",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev:api": ".venv/bin/uvicorn app.main:app --app-dir apps/api --reload",
+    "dev": "pnpm --filter @topolog/web dev",
+    "bootstrap:api": "bash scripts/bootstrap_api_env.sh",
+    "build": "pnpm --filter @topolog/web build",
+    "lint": "pnpm --filter @topolog/web lint",
+    "contracts:build": "pnpm --filter @topolog/contracts build",
+    "sdk:build": "pnpm --filter @topolog/sdk-ts build",
+    "test:api": ".venv/bin/pytest apps/api/tests",
+    "test:ts": "pnpm --filter @topolog/contracts test",
+    "test:web": "cd apps/web && npx vitest run --config vitest.config.ts",
+    "test": "pnpm test:ts && pnpm test:web && .venv/bin/pytest apps/api/tests",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.4"
+  }
+}

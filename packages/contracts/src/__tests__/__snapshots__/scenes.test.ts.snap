@@ -1,0 +1,47 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Schema shape snapshots > Artifact shape snapshot 1`] = `
+[
+  "createdAt",
+  "downloadUrl",
+  "filename",
+  "format",
+  "id",
+  "sizeBytes",
+]
+`;
+
+exports[`Schema shape snapshots > JobResponse shape snapshot 1`] = `
+[
+  "completedAt",
+  "createdAt",
+  "currentStageIndex",
+  "fileSize",
+  "filename",
+  "id",
+  "outputFormats",
+  "quality",
+  "sceneId",
+  "stages",
+  "status",
+]
+`;
+
+exports[`Schema shape snapshots > SceneDetail shape snapshot 1`] = `
+[
+  "artifacts",
+  "completedAt",
+  "createdAt",
+  "displayName",
+  "fileSize",
+  "filename",
+  "latestJobId",
+  "latestJobStatus",
+  "latestVersion",
+  "outputFormats",
+  "quality",
+  "qualityMetrics",
+  "sceneId",
+  "stats",
+]
+`;
