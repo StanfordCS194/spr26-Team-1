@@ -1,0 +1,41 @@
+# Topolog SDK — multi-camera streaming config.
+#
+# Each entry below maps a ROS2 camera topic to a single SRT stream. The
+# `stream_id` is forwarded as the SRT `streamid=` query param so the
+# ingestion endpoint can route each feed independently.
+#
+# Width, height, and pixel format are auto-detected from the first ROS
+# message — you do not need to declare them here.
+
+streams:
+  - topic: /camera/color/image_raw
+    message_type: Image           # Image | CompressedImage | auto
+    stream_id: front_color
+    ingestion_url: srt://ingest.example.com:9999
+    fps: 30
+    bitrate: 4M
+
+  - topic: /camera/depth/image_rect_raw
+    message_type: Image
+    stream_id: front_depth
+    ingestion_url: srt://ingest.example.com:9999
+    fps: 30
+    bitrate: 2M
+
+  - topic: /rear_camera/image_raw/compressed
+    message_type: CompressedImage
+    stream_id: rear_color
+    ingestion_url: srt://ingest.example.com:9999
+    fps: 30
+    bitrate: 4M
+
+  # Auto-detect message type from running publishers / topic suffix
+  - topic: /side_camera/image_raw
+    message_type: auto
+    stream_id: side_color
+    ingestion_url: srt://ingest.example.com:9999
+    fps: 30
+    bitrate: 4M
+    srt_params:
+      latency: 200000           # microseconds
+      passphrase: changeme      # 10-79 byte SRT pre-shared key

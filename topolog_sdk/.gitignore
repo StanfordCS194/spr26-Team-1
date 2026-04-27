@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# colcon / ROS 2 build artefacts
+install/
+log/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Temporary files
+*.swp
+*.tmp
