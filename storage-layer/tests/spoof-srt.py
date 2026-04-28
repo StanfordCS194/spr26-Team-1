@@ -21,8 +21,9 @@ def main():
     cmd = [
         "ffmpeg",
         "-re",                          # real-time rate
-        "-f",      "lavfi",             # use lavfi virtual input
-        "-i",      f"testsrc=duration={args.duration}:size=1280x720:rate=30",
+        # "-f",      "lavfi",             # use lavfi virtual input
+        # "-i",      f"testsrc=duration={args.duration}:size=1280x720:rate=30",
+        "-i",      "test.mov",           # use a real video file as input
         "-c:v",    "libx264",           # encode as H.264
         "-preset", "ultrafast",
         "-tune",   "zerolatency",

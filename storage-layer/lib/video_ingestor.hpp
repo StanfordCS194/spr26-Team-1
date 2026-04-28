@@ -22,9 +22,13 @@ class VideoIngestor : public rclcpp::Node {
 public:
   VideoIngestor(const std::string& srt_url, int node_id)
     : Node("video_ingestor"), node_id_(node_id) {
+      
+    auto qos = rclcpp::QoS(500)
+                .reliability(rclcpp::ReliabilityPolicy::Reliable)
+                .history(rclcpp::HistoryPolicy::KeepAll);
 
     publisher_ = create_publisher<sensor_msgs::msg::CompressedImage>(
-                   "video_source_" + std::to_string(node_id_), 10);
+                  "video_source_" + std::to_string(node_id_), qos);
 
     if (!openIngest(srt_url)) {
       RCLCPP_ERROR(get_logger(), "Failed to open SRT stream");

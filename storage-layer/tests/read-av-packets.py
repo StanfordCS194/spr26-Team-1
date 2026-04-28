@@ -1,67 +1,131 @@
 #!/usr/bin/env python3
-"""
-Subscribes to the drone/video/compressed topic and prints
-incoming packet info to verify the ingestor is publishing correctly.
-"""
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import CompressedImage
-import struct
+import av
+import cv2
+import threading
+import queue
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+
+latest_jpeg = b""
+jpeg_lock   = threading.Lock()
+
+class MjpegHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/':
+            # Serve a simple HTML page with auto-refreshing MJPEG stream
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html')
+            self.end_headers()
+            self.wfile.write(b"""
+                <html>
+                <head><title>Drone Video</title></head>
+                <body style="background:black;margin:0">
+                <img src="/stream" style="width:100%;height:100vh;object-fit:contain"/>
+                </body>
+                </html>
+            """)
+
+        elif self.path == '/stream':
+            # MJPEG stream endpoint
+            self.send_response(200)
+            self.send_header('Content-Type',
+                             'multipart/x-mixed-replace; boundary=frame')
+            self.end_headers()
+
+            try:
+                while True:
+                    with jpeg_lock:
+                        frame = latest_jpeg
+
+                    if frame:
+                        self.wfile.write(b"--frame\r\n")
+                        self.send_header('Content-Type',  'image/jpeg')
+                        self.send_header('Content-Length', len(frame))
+                        self.end_headers()
+                        self.wfile.write(frame)
+                        self.wfile.write(b"\r\n")
+
+            except (BrokenPipeError, ConnectionResetError):
+                pass  # client disconnected
+
+    def log_message(self, *args):
+        pass  # suppress access logs
+
+def start_server(port=8080):
+    server = HTTPServer(('0.0.0.0', port), MjpegHandler)
+    print(f"MJPEG stream at http://localhost:{port}")
+    server.serve_forever()
 
 class PacketReader(Node):
     def __init__(self):
         super().__init__('packet_reader')
 
-        self.packet_count = 0
-        self.total_bytes  = 0
+        self.codec        = av.CodecContext.create('h264', 'r')
+        self.packet_queue = queue.Queue(maxsize=500)
+
+        qos = QoSProfile(
+            depth=500,
+            reliability=ReliabilityPolicy.RELIABLE,
+            history=HistoryPolicy.KEEP_ALL
+        )
 
         self.subscription = self.create_subscription(
             CompressedImage,
             'video_source_0',
             self.on_packet,
-            10)
+            qos)
 
-        self.get_logger().info("Listening on /video_source_0...")
+        self.decode_thread = threading.Thread(
+            target=self.decode_loop, daemon=True)
+        self.decode_thread.start()
+
+        self.get_logger().info("Listening on video_source_0...")
 
     def on_packet(self, msg):
-        self.packet_count += 1
-        self.total_bytes  += len(msg.data)
+        try:
+            self.packet_queue.put_nowait(bytes(msg.data))
+        except queue.Full:
+            self.get_logger().warn("Packet queue full, dropping packet")
 
-        # Peek at first byte to determine NAL unit type
-        nal_type = None
-        if len(msg.data) >= 5:
-            # Annex B: skip 4 byte start code, read NAL type
-            nal_type = msg.data[4] & 0x1F
+    def decode_loop(self):
+        global latest_jpeg
+        frame_count = 0
 
-        nal_names = {
-            1: "P-frame",
-            5: "IDR (keyframe)",
-            7: "SPS",
-            8: "PPS",
-            6: "SEI"
-        }
-        nal_name = nal_names.get(nal_type, f"unknown ({nal_type})")
+        while True:
+            raw = self.packet_queue.get()
+            try:
+                pkt = av.Packet(raw)
+                for frame in self.codec.decode(pkt):
+                    bgr = frame.to_ndarray(format='bgr24')
 
-        self.get_logger().info(
-            f"[{self.packet_count:04d}] "
-            f"format={msg.format} "
-            f"size={len(msg.data)} bytes "
-            f"nal={nal_name} "
-            f"stamp={msg.header.stamp.sec}.{msg.header.stamp.nanosec:09d} "
-            f"total_received={self.total_bytes} bytes"
-        )
+                    # Encode to JPEG for streaming
+                    _, jpeg = cv2.imencode('.jpg', bgr,
+                                          [cv2.IMWRITE_JPEG_QUALITY, 85])
+                    with jpeg_lock:
+                        latest_jpeg = jpeg.tobytes()
+
+                    frame_count += 1
+                    self.get_logger().info(f"Frame {frame_count} decoded")
+
+            except Exception as e:
+                self.get_logger().warn(f"Decode error: {e}")
 
 def main():
+    # Start MJPEG server in background
+    server_thread = threading.Thread(
+        target=start_server, daemon=True)
+    server_thread.start()
+
     rclpy.init()
     node = PacketReader()
+
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
-        node.get_logger().info(
-            f"Shutting down. "
-            f"Received {node.packet_count} packets "
-            f"({node.total_bytes} bytes total)"
-        )
+        pass
     finally:
         rclpy.shutdown()
 
